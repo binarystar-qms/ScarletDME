@@ -127,10 +127,9 @@ QMUSERS := $(shell cat /etc/group | grep qmusers)
 qm: ARCH :=
 qm: BITSIZE := 64
 qm: C_FLAGS  := -Wall -Wformat=2 -Wno-format-nonliteral -DLINUX -D_FILE_OFFSET_BITS=64 -I$(GPLSRC) -DGPL -g $(ARCH) -fPIE
-qm: $(QMOBJS) qmclilib.so qmtic qmfix qmconv qmidx qmlnxd terminfo
+qm: $(QMOBJS) qmclilib.so qmtic qmfix qmconv qmidx qmlnxd
 	@echo Linking $@
-	@cd $(GPLOBJ)
-	@$(COMP) $(ARCH) $(L_FLAGS) $(QMOBJSD) -o $(GPLBIN)qm
+	$(COMP) $(ARCH) $(L_FLAGS) $(QMOBJSD) -o $(GPLBIN)qm
 
 qm32: ARCH := -m32
 qm32: BITSIZE := 32
@@ -245,18 +244,21 @@ else
 #	else update everything that's changed, eg NEWVOC, MESSAGES, all that sort of stuff.
 
 #	copy the contents of NEWVOC so the account will upgrade
-	@rm $(INSTROOT)/NEWVOC/*
+	@test -d $(INSTROOT)/NEWVOC || mkdir -p $(INSTROOT)/NEWVOC
+	@rm -f $(INSTROOT)/NEWVOC/*
 	@cp qmsys/NEWVOC/* $(INSTROOT)/NEWVOC
 	@chown qmsys:qmusers $(INSTROOT)/NEWVOC/*
 	@chmod 664 $(INSTROOT)/NEWVOC/*
 
 #	copy the contents of MESSAGES so the account will upgrade
-	@rm $(INSTROOT)/MESSAGES/*
+	@test -d $(INSTROOT)/MESSAGES || mkdir -p $(INSTROOT)/MESSAGES
+	@rm -f $(INSTROOT)/MESSAGES/*
 	@cp qmsys/MESSAGES/* $(INSTROOT)/MESSAGES
 	@chown qmsys:qmusers $(INSTROOT)/MESSAGES/*
 	@chmod 664 $(INSTROOT)/MESSAGES/*
 
 #	copy the contents of terminfo so the account will upgrade
+	@test -d $(INSTROOT)/terminfo || mkdir -p $(INSTROOT)/terminfo
 	@rm -Rf $(INSTROOT)/terminfo/*
 	@cp -R qmsys/terminfo/* $(INSTROOT)/terminfo
 	@chown qmsys:qmusers $(INSTROOT)/terminfo/*
@@ -266,9 +268,9 @@ else
 
 endif
 #       copy bin files and make them executable
-	@test -d $(INSTROOT)/bin || mkdir $(INSTROOT)/bin
+	@test -d $(INSTROOT)/bin || mkdir -p $(INSTROOT)/bin
 #	copy the contents of bin so the account will upgrade
-	@rm $(INSTROOT)/bin/*
+	@rm -f $(INSTROOT)/bin/*
 	@cp bin/* $(INSTROOT)/bin
 	chown qmsys:qmusers $(INSTROOT)/bin $(INSTROOT)/bin/*
 	chmod 775 $(INSTROOT)/bin $(INSTROOT)/bin/*

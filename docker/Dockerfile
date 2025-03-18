@@ -9,11 +9,15 @@ RUN mkdir /usr/src/ScarletDME && \
 COPY / /usr/src/ScarletDME
 RUN chown -R qmsys:qmusers /usr/src/ScarletDME
 RUN (mkdir /usr/qmsys && chown -R qmsys:qmusers /usr/qmsys)
-RUN cp /usr/src/ScarletDME/qmconfig /etc/scarlet.conf
+RUN ls -la /usr/src/ScarletDME
+RUN cp /usr/src/ScarletDME/scarlet.conf /etc/scarlet.conf
 RUN chown qmsys:qmusers /etc/scarlet.conf
 RUN usermod -a -G qmusers root
 USER qmsys:qmusers
 RUN (cd /usr/src/ScarletDME && (make clean || true))
-RUN (cd /usr/src/ScarletDME && make && make install datafiles)
+RUN (cd /usr/src/ScarletDME && make)
+USER root:root
+RUN (cd /usr/src/ScarletDME && make install datafiles)
+RUN chmod +x bin/*
 WORKDIR /usr/qmsys
 USER root:root

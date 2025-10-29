@@ -21,6 +21,8 @@
  * ScarletDME Wiki: https://scarlet.deltasoft.com
  * 
  * START-HISTORY (ScarletDME):
+ * 22Sep25 gwb Git issue #92 - Fix compiler standard compliance check.
+ * 03Sep25 gwb Don't redeclare 'bool' if we're using a C23-compliant compiler.
  * 27Feb20 gwb Changed integer declarations to be portable across address
  *             space sizes (32 vs 64 bit)
  * 
@@ -146,7 +148,10 @@ int16_t swap2(int16_t data);
 
 /* Type definitions */
 
+#if __STDC_VERSION__ <= 201710L /* git issue #92 */
 typedef int16_t bool;
+#endif
+
 #define FALSE 0
 #define TRUE 1
 

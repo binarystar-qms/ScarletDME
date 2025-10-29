@@ -21,7 +21,8 @@
 * ScarletDME Wiki: https://scarlet.deltasoft.com
  * 
  * START-HISTORY (ScarletDME):
- *
+ * 03Sep25 gwb Fix potential overflow (github issue #79)
+ * 03Sep25 gwb Remove K&R-isms.
  * START-HISTORY (OpenQM):
  * 01 Jul 07  2.5-7 Extensive change for PDA merge.
  * 16 Sep 04  2.0-1 OpenQM launch. Earlier history details suppressed.
@@ -38,25 +39,20 @@
 #include "qm.h"
 
 /* ======================================================================
-   qmsendmail()  -  Send email                                            */
+ *  qmsendmail()  -  Send email                                            
+ * sender         Sender's address:  fred@acme.com
+ * recipients     Comma separated list of recipient addresses
+ * cc_recipients  Comma separated list of recipient addresses
+ * bcc_recipients Comma separated list of recipient addresses
+ * subject        Subject line 
+ * text           Text of email 
+ * attachments    Comma separated list of attachment files 
+ */
+bool qmsendmail(char *sender, char *recipients, char *cc_recipients, char *bcc_recipients,
+                char *subject, char *text, char *attachments) {
 
-bool qmsendmail(
-    sender,
-    recipients,
-    cc_recipients,
-    bcc_recipients,
-    subject,
-    text,
-    attachments) char* sender; /* Sender's address:  fred@acme.com */
-char* recipients;              /* Comma separated list of recipient addresses */
-char* cc_recipients;           /* Comma separated list of recipient addresses */
-char* bcc_recipients;          /* Comma separated list of recipient addresses */
-char* subject;                 /* Subject line */
-char* text;                    /* Text of email */
-char* attachments;             /* Comma separated list of attachment files */
-{
   bool status = FALSE;
-  char tempname[12 + 1]; /* .qm_mailnnnn */
+  char tempname[16 + 1]; /* .qm_mailnnnn */ /* github issue #79 */
   char command[1024 + 1];
   int tfu;
   int n;

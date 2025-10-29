@@ -21,6 +21,8 @@
  * ScarletDME Wiki: https://scarlet.deltasoft.com
  * 
  * START-HISTORY (ScarletDME):
+ * 12Sep25 gwb Git Issue #86: Uncomment out code that was commented out in error...in 2020.
+ * 03Sep25 gwb Remove K&R-isms.
  * 15Jan22 gwb Fixed dozens of instances of "Wrong type of arguments to fomatting
  *             function" that were reported by CodeQL. Tagged as CWE-686 by CodeQL.
  * 
@@ -232,9 +234,7 @@ void event_handler(int signum);
 
 /* ====================================================================== */
 
-int main(argc, argv) int argc;
-char *argv[];
-{
+int main(int argc, char *argv[]) {
   int status = 1;
   int arg;
   int argx;
@@ -367,7 +367,7 @@ usage:
    fix_file()                                                             */
 
 void fix_file(char *fn) {
-  // int status; delcared but never used.
+  //int status;
 
   strcpy(filename, fn);
 
@@ -375,8 +375,9 @@ void fix_file(char *fn) {
     if (file_found)
       emit("\n\n");
     file_found = TRUE;
-    // status = process_file();
-    // status is never used.
+    //status = process_file(); /* git issue #86 */
+    process_file();
+
   }
 }
 

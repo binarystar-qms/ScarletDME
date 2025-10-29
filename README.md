@@ -1,32 +1,86 @@
-[Make sure to check out the change_log.txt file to see the most
- current work being done!]
+# ScarletDME
 
-As of January 10th, 2022, ScarletDME can be built as a fully native 64 bit
-application!  More testing needs to be done, but the 64 bit build appears
-to function identically to the 32 bit build.
+A multivalue database management system built from OpenQM 2.6-6.
+Thank you to Martin Phillips for the original GPL release of OpenQM.
 
-The 64-bit version is the default for the dev branch, but there is a
-qm32 target to build the 32-bit version on the dev branch.
+## Building from Source
 
-These packages are needed to build ScarletDME as a 32 bit application,
-for most Linux distributions:
-libgcc.i686
-glibc-devel.i686
+Building ScarletDME requires gcc and make.
 
-For proper terminal operation, you'll need to install:
-ncurses-devel
-ncurses-compat-libs
+```
+git clone https://github.com/geneb/ScarletDME.git
+cd ScarletDME
+make
+sudo make install
+```
 
-If you would like to support remote access to your ScarletDME system via
-the QMClient API or telnet services, you'll need to install xinetd, or
-debug the systemd .socket implementation. See the README.md in the
-xinetd.d directory for instructions on the further use of xinetd.
+The installation will create the qmusers group and a qmsys user, which is required for ScarletDME to work.
 
-ScarletDME requires a user named "qmsys" and a group named "qmusers".
-These will be created for you automatically by the "install" target. But
-make sure you add the qmuser group to any user that will be using
-ScarletDME.
+To update a specific user to use ScarletDME, you will need to add them to the
+qmusers group:
 
+```
+sudo usermod -aG qmusers username
+```
+
+Note that you'll need to add your account to the qmusers account before you
+can use ScarletDME.  If you do this and get a $LOGIN error, you can just log
+out of your Linux terminal session and log back in so that the current shell 
+picks up your new group assignment.
+
+You can start ScarletDME by issuing one of the following commands:
+
+(non-systemd method)
+```
+sudo qm -start
+```
+(systemd method)
+```
+sudo systemctl start scarletdme
+```
+Note that if you would like ScarletDME to automatically start up on system boot,
+you'll also need to issue the command:
+```
+sudo systemctl enable scarletdme
+```
+
+## Community
+
+The community for multivalue is small and so here are some places specific
+to ScarletDME. 
+
+[ScarletDME Discord](https://discord.gg/H7MPapC2hK)
+
+[ScarletDME Google Group](https://groups.google.com/g/scarletdme/)
+
+There are also general multivalue communites online.
+
+[Pick Google Group](https://groups.google.com/g/mvdbms)
+
+[OpenQM Google Group](https://groups.google.com/g/openqm)
+
+[Rocket Forums](https://community.rocketsoftware.com/forums/multivalue)
+
+# For Developers
+
+If you would like to run the most current "development" edition of ScarletDME, you'll need to get a copy of the 'dev' branch:
+```
+git checkout dev
+```
+This working branch will have the most up to date changes, but may not be strictly speaking, "stable".  If you favor stability
+over bleeding edge work, please stick with the 'master' branch.
+
+ScarletDME now favors 64 bit platforms.  The 32 bit code has been
+"retired" to the "master32" and "Release32" branches.  No pull requests will
+be accepted for the 32 bit branches.
+
+# Client Access
+Client access via the QMClient API or telnet can be handled via systemd.
+The default 'make install' process will install the included systemd scripts
+to allow ScarletDME client services to run.  If you don't use systemd, see the 
+README.md in the xinetd.d directory for instructions on the further use of xinetd.
+
+# Build/Install Notes
 You should be able to build the system by just typing "make' in the
 directory where the Makefile lives. Enter "sudo make install" to install
 the result of the first "make" command.
@@ -42,15 +96,20 @@ datafiles", but this should normally never be done, as it is done for
 you on initial install, and overwriting the files will destroy your live
 system status.
 
+# Documentation
 The system has adopted Sphinx for documentation - install Sphinx then
 "make docs" to build the html documentation locally. This will create
 the document root as docs/build/html/index. To build other formats (pdf,
 epub) read the Sphinx documentation, then run the Sphinx makefile from
 inside the docs directory. (Make sure you get the right Sphinx - www.sphinx-doc.org)
 
-Code formatting notes:
-I'm using Visual Studio code with the Microsoft C/C++ IntelliSense, debugging,
-and code browsing extension installed.  
+Got a pull request for us?  GREAT!  However, all pull requests must be tied to 
+a git Issue # in order to help keep things a bit better documented and much
+more organized!  Make sure your commit message includes the Issue # you created.
+
+# Code Formatting
+We mostly use Visual Studio code with the Microsoft C/C++ IntelliSense, debugging,
+and code browsing extension installed.
 
 Each time I need to edit a code file, it's reformatted using the clang-format
 feature in the extension.  The .clang-format file in this repository is based
@@ -58,39 +117,14 @@ upon the Chromium format, but it will not reflow comments, nor will it
 sort includes.  The settings can be found in ScarletDME/.clang-format.
 
 Some files have been reformatted, most have not.  However, eventually they all
-will be.  There's also instances of K&R-style function parameter declarations
-and those will be converted to ANSI-style as I discover them.
+will be.
 
 There's a mailing list available at https://groups.google.com/g/scarletdme. 
 Both developers and regular users are welcome!
 
-[27Feb20] A Discord server is now available (basically a tarted up version of IRC) at
-          https://discord.gg/H7MPapC2hK - if this link doesn't work for you,
-          please reach out to me (geneb@deltasoft.com) and I'll get you a working
-          link.  They do age out periodically. [24Jan22 - the Discord link should
-          now be permanent.]
+# Future Work
 
-[26Feb20 gwb]
-
-I resumed work on this project because I had an itch I just had to scratch.
-That's how most open source software is done apparently. :)
-
-I should note that at the moment, the contents of this git repo builds and
-works for *me*.  I'm not guaranteeing it'll work for anyone else. :)
-
-I'm not sure what the future holds for this project, but I would like to get 
-a clean, working build of a 64 bit ScarletDME.  I had originally thought that
-this was very difficult due to the pre-compiled p-code that the system depended
-on.  However, after actually doing some research into what was going on, it 
-may be a much less dramatic task than I'd originally thought.  My original 
-assumption about the p-code issue was *wildly* incorrect.  That happens when
-you just glance at an issue without actually digging into it.
-
-This means that a 64 bit version of ScarletDME isn't that far fetched after
-all.  Time well tell I suppose.  I know what needs to be done and how to do 
-it, so at least I've got that going for me. :)
-
-I would also like to finish the "re-branding" of OpenQM to ScarletDME.
+I would like to finish the "re-branding" of OpenQM to ScarletDME.
 While some things will forever be "OpenQM-isms" like the names of the binaries,
 there are other areas that just need to be changed in order to make the
 re-branding effort complete.
@@ -106,4 +140,4 @@ I will always appreciate the gift he's given us all and the value that OpenQM
 represents to the Multi-Value database community - regardless of whether or not
 they realize it. ;)
 
--Gene Buckle, February 26th, 2020.
+Many thanks to @Krowemoh for providing a fantastic starting point for updating this README!

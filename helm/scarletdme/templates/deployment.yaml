@@ -91,10 +91,16 @@ spec:
             {{- with .Values.extraVolumeMounts }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
-          {{- with .Values.env }}
           env:
+            {{- if .Values.scarletdme.user.enabled }}
+            - name: SCARLET_USER
+              value: {{ .Values.scarletdme.user.name | quote }}
+            - name: SCARLET_PASSWORD
+              value: {{ .Values.scarletdme.user.password | quote }}
+            {{- end }}
+            {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- end }}
           {{- with .Values.envFrom }}
           envFrom:
             {{- toYaml . | nindent 12 }}

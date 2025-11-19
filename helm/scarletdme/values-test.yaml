@@ -51,10 +51,8 @@ startupProbe:
   failureThreshold: 20
   successThreshold: 1
 
-# Security configuration
-env:
-  - name: SCARLET_USER
-    value: "myra"
-  - name: SCARLET_PASSWORD
-    value: "myrasupersecret"
+# Security disabled - direct account access without authentication
+scarletdme:
+  user:
+    enabled: false
 

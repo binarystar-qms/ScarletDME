@@ -92,11 +92,8 @@ Private void ccall_c(unsigned char *s1, void *s2) {
   u_int64 res64;
   void *v;
 
-#if defined(__GNUC__) && __GNUC__ > 11  || defined(__APPLE__) /* part of git issue #92 */
-  u_int64 (*Fn0)(...); /* git issue #81 */
-#else
+  /* Use K&R style function pointer declaration for maximum compatibility */
   u_int64 (*Fn0)(); /* git issue #81 */
-#endif
 
   StkCnt = 0;
 

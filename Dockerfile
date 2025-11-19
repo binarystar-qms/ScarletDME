@@ -1,16 +1,16 @@
 # ScarletDME Dockerfile for Kubernetes Deployment
-# Multi-stage build for optimized production image using Alpine Linux
+# Multi-stage build for optimized production image using Debian Slim
 
 # Build stage
-FROM alpine:3.19 AS builder
+FROM debian:bookworm-slim AS builder
 
 # Install build dependencies
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     make \
-    musl-dev \
-    linux-headers
+    libc6-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy source code
 COPY . /usr/src/ScarletDME
@@ -21,28 +21,38 @@ RUN make clean || true
 RUN make
 
 # Production stage
-FROM alpine:3.19
+FROM debian:bookworm-slim
 
 LABEL maintainer="ScarletDME Team"
 LABEL description="ScarletDME Multi-Value Database Server"
 LABEL version="1.0"
 
 # Install runtime dependencies only
-RUN apk add --no-cache \
-    libstdc++ \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libstdc++6 \
     bash \
     procps \
-    shadow \
-    busybox-extras
+    passwd \
+    libpam-modules \
+    libpam-runtime \
+    openbsd-inetd \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create qmusers group and qmsys user
-RUN addgroup -S qmusers && \
-    adduser -S -G qmusers -h /usr/qmsys -s /bin/bash qmsys && \
-    addgroup root qmusers
+RUN groupadd --system qmusers && \
+    useradd --system --gid qmusers --home-dir /usr/qmsys --shell /bin/bash qmsys && \
+    usermod -aG qmusers root
+
+# Note: Running without security - no user accounts needed
+# Users can connect directly to accounts without authentication
 
 # Create necessary directories
-RUN mkdir -p /usr/qmsys /etc && \
-    chown -R qmsys:qmusers /usr/qmsys
+# /run/secrets and /var/run/secrets are needed for Kubernetes service account token mounting
+# Ensure /var/run is a symlink to /run (standard on Debian)
+RUN mkdir -p /usr/qmsys /etc /run/secrets/kubernetes.io/serviceaccount && \
+    chown -R qmsys:qmusers /usr/qmsys && \
+    chmod 755 /run /run/secrets /run/secrets/kubernetes.io /run/secrets/kubernetes.io/serviceaccount && \
+    rm -rf /var/run && ln -s /run /var/run
 
 # Copy configuration files
 COPY scarlet.conf /etc/scarlet.conf
@@ -57,11 +67,9 @@ COPY --from=builder /usr/src/ScarletDME/bin /tmp/scarlet-bin
 # Copy pcode file from source (it's a pre-built static file)
 COPY bin/pcode /tmp/pcode-file
 
-# Copy Docker entrypoint script and security setup script
+# Copy Docker entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-COPY setup-security.sh /usr/local/bin/setup-security.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh && \
-    chmod +x /usr/local/bin/setup-security.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Copy source for installation
 COPY --from=builder /usr/src/ScarletDME/qmsys /tmp/qmsys

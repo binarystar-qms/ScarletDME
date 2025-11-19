@@ -123,6 +123,7 @@
 #endif
 
 #include <unistd.h>
+#include <stdbool.h>
 #define MakeDirectory(name) mkdir(name, 0777)
 #define stricmp(a, b) strcasecmp(a, b)
 #define O_BINARY 0
@@ -148,7 +149,7 @@ int16_t swap2(int16_t data);
 
 /* Type definitions */
 
-#if __STDC_VERSION__ <= 201710L /* git issue #92 */
+#if __STDC_VERSION__ <= 201710L && !defined(__bool_true_false_are_defined) /* git issue #92 */
 typedef int16_t bool;
 #endif
 

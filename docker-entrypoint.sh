@@ -4,6 +4,8 @@
 
 set -e
 
+# Running without security - no password configuration needed
+
 # Start inetd for network services (QMServer on 4242, QMClient on 4243)
 echo "Starting inetd for network services..."
 if command -v inetd > /dev/null; then
@@ -22,14 +24,18 @@ fi
 echo "Starting ScarletDME..."
 /usr/qmsys/bin/qm -start
 
-# Configure security if environment variables are set
-if [ -n "$SCARLET_USER" ] && [ -n "$SCARLET_PASSWORD" ]; then
-    echo "Configuring security with user: $SCARLET_USER"
-    sleep 3  # Wait for ScarletDME to fully initialize
-    
-    # Run the security setup script
-    /usr/local/bin/setup-security.sh
-fi
+# Wait for daemon to initialize
+sleep 3
+
+# Explicitly disable security to ensure clean state
+echo "Disabling security..."
+/usr/qmsys/bin/qm -aQMSYS "SECURITY OFF" >/dev/null 2>&1
+
+echo "════════════════════════════════════════════════════════════"
+echo "✓ ScarletDME running WITHOUT security"
+echo "✓ Connect via: telnet <host> 4242"
+echo "✓ Enter account name when prompted (e.g., QMSYS)"
+echo "════════════════════════════════════════════════════════════"
 
 # Wait a moment for the daemon to initialize
 sleep 2

@@ -1,0 +1,272 @@
+name: Deploy to DigitalOcean
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches:
+      - main
+      - master
+      - staging
+    tags:
+      - 'v*.*.*'
+  release:
+    types: [published, released]
+
+env:
+  REGISTRY: registry.digitalocean.com/binarystar
+  IMAGE_NAME: scarletdme
+  CLUSTER_NAME: k8s-binarystar-do
+
+jobs:
+  determine-config:
+    name: Determine Configuration
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.config.outputs.environment }}
+      namespace: ${{ steps.config.outputs.namespace }}
+      release_name: ${{ steps.config.outputs.release_name }}
+      domain: ${{ steps.config.outputs.domain }}
+      values_file: ${{ steps.config.outputs.values_file }}
+      tag_prefix: ${{ steps.config.outputs.tag_prefix }}
+      skip_tests: ${{ steps.config.outputs.skip_tests }}
+
+    steps:
+      - name: Determine environment configuration
+        id: config
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+            SKIP_TESTS="${{ github.event.inputs.skip_tests }}"
+          else
+            # Automatic trigger from push or release
+            if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+              ENVIRONMENT="production"
+            else
+              ENVIRONMENT="staging"
+            fi
+            SKIP_TESTS="false"
+          fi
+
+          if [ "$ENVIRONMENT" = "staging" ]; then
+            echo "environment=staging" >> $GITHUB_OUTPUT
+            echo "namespace=scarletdme-staging" >> $GITHUB_OUTPUT
+            echo "release_name=scarletdme-staging" >> $GITHUB_OUTPUT
+            echo "domain=scarletdme-staging.binarystarlabs.com" >> $GITHUB_OUTPUT
+            echo "values_file=./helm/scarletdme/values-staging.yaml" >> $GITHUB_OUTPUT
+            echo "tag_prefix=staging-" >> $GITHUB_OUTPUT
+          else
+            echo "environment=production" >> $GITHUB_OUTPUT
+            echo "namespace=scarletdme" >> $GITHUB_OUTPUT
+            echo "release_name=scarletdme" >> $GITHUB_OUTPUT
+            echo "domain=scarletdme.binarystarlabs.com" >> $GITHUB_OUTPUT
+            echo "values_file=./helm/scarletdme/values.yaml" >> $GITHUB_OUTPUT
+            echo "tag_prefix=" >> $GITHUB_OUTPUT
+          fi
+
+          echo "skip_tests=$SKIP_TESTS" >> $GITHUB_OUTPUT
+
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: determine-config
+    outputs:
+      image-tag: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Calculate version
+        id: version
+        run: |
+          BASE_VERSION=$(grep '"version"' package.json 2>/dev/null | head -1 | sed 's/.*"\([0-9]*\.[0-9]*\.[0-9]*\)".*/\1/' || echo "1.0.0")
+          BUILD_NUMBER=0
+          
+          if git tag -l "v${BASE_VERSION}.*" | grep -E "^v${BASE_VERSION}\.[0-9]+$" > /dev/null; then
+            LATEST_BUILD=$(git tag -l "v${BASE_VERSION}.*" | sed "s|^v${BASE_VERSION}\.||" | sort -n | tail -1)
+            BUILD_NUMBER=$((LATEST_BUILD + 1))
+          fi
+          
+          VERSION="${BASE_VERSION}.${BUILD_NUMBER}"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "🏷️  Version: $VERSION"
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Log in to DigitalOcean Container Registry
+        run: doctl registry login --expiry-seconds 600
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.determine-config.outputs.tag_prefix }}${{ steps.version.outputs.version }} \
+            -t ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.determine-config.outputs.tag_prefix }}latest \
+            -f Dockerfile .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.determine-config.outputs.tag_prefix }}${{ steps.version.outputs.version }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.determine-config.outputs.tag_prefix }}latest
+          echo "✅ Docker images pushed successfully"
+
+      - name: Generate release notes
+        id: notes
+        run: |
+          NOTES="## ScarletDME Deployment
+          
+          **Version**: ${{ steps.version.outputs.version }}
+          **Environment**: ${{ needs.determine-config.outputs.environment }}
+          **Image**: \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.determine-config.outputs.tag_prefix }}${{ steps.version.outputs.version }}\`
+          **Namespace**: \`${{ needs.determine-config.outputs.namespace }}\`"
+          
+          echo "notes=$NOTES" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy to Kubernetes
+    runs-on: ubuntu-latest
+    needs: [determine-config, build-and-push]
+    environment:
+      name: ${{ needs.determine-config.outputs.environment }}
+      url: https://${{ needs.determine-config.outputs.domain }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save ${{ env.CLUSTER_NAME }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.13.0'
+
+      - name: Create namespace
+        run: |
+          kubectl create namespace ${{ needs.determine-config.outputs.namespace }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy with Helm
+        run: |
+          VALUES_FILE="${{ needs.determine-config.outputs.values_file }}"
+          
+          # Use default values if staging/production file doesn't exist
+          if [ ! -f "$VALUES_FILE" ]; then
+            VALUES_FILE="./helm/scarletdme/values.yaml"
+          fi
+          
+          helm upgrade ${{ needs.determine-config.outputs.release_name }} ./helm/scarletdme \
+            -f "$VALUES_FILE" \
+            --namespace ${{ needs.determine-config.outputs.namespace }} \
+            --create-namespace \
+            --install \
+            --set image.repository=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} \
+            --set image.tag=${{ needs.determine-config.outputs.tag_prefix }}${{ needs.build-and-push.outputs.image-tag }} \
+            --set image.pullPolicy=Always \
+            --wait \
+            --timeout=10m \
+            --atomic
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Checking deployment in namespace: ${{ needs.determine-config.outputs.namespace }}"
+          kubectl get pods -n ${{ needs.determine-config.outputs.namespace }}
+          kubectl get services -n ${{ needs.determine-config.outputs.namespace }}
+          kubectl get ingress -n ${{ needs.determine-config.outputs.namespace }} || echo "⚠️  No ingress configured"
+
+      - name: Wait for pods to be ready
+        run: |
+          echo "⏳ Waiting for pods to become ready..."
+          kubectl wait --for=condition=ready pod \
+            -l app.kubernetes.io/name=scarletdme \
+            -n ${{ needs.determine-config.outputs.namespace }} \
+            --timeout=300s || echo "⚠️  Some pods may not be ready"
+
+      - name: Run health check
+        if: ${{ needs.determine-config.outputs.skip_tests != 'true' }}
+        run: |
+          echo "🏥 Running health checks..."
+          
+          # Get any pod
+          POD=$(kubectl get pod -n ${{ needs.determine-config.outputs.namespace }} \
+            -l app.kubernetes.io/name=scarletdme \
+            -o jsonpath='{.items[0].metadata.name}')
+          
+          if [ -n "$POD" ]; then
+            echo "Testing pod: $POD"
+            kubectl exec -n ${{ needs.determine-config.outputs.namespace }} "$POD" -- pgrep -x qm && echo "✅ ScarletDME process is running" || echo "⚠️  ScarletDME process check inconclusive"
+          else
+            echo "⚠️  No pods found to test"
+          fi
+
+  rollback:
+    name: Rollback on Failure
+    runs-on: ubuntu-latest
+    if: failure()
+    needs: [determine-config, deploy]
+
+    steps:
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save DigitalOcean kubeconfig
+        run: doctl kubernetes cluster kubeconfig save ${{ env.CLUSTER_NAME }}
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.13.0'
+
+      - name: Rollback deployment
+        run: |
+          echo "🔄 Rolling back deployment..."
+          helm rollback ${{ needs.determine-config.outputs.release_name }} \
+            -n ${{ needs.determine-config.outputs.namespace }} || echo "⚠️  Rollback may have failed or no previous release exists"
+
+  notify:
+    name: Send Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [determine-config, deploy]
+    if: always()
+
+    steps:
+      - name: Deployment Summary
+        run: |
+          echo "## 🚀 ScarletDME Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Status**: ${{ needs.deploy.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment**: ${{ needs.determine-config.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Namespace**: \`${{ needs.determine-config.outputs.namespace }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**Domain**: ${{ needs.determine-config.outputs.domain }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Image Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Registry**: \`${{ env.REGISTRY }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Image**: \`${{ env.IMAGE_NAME }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "[View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY

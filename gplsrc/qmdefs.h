@@ -71,8 +71,11 @@
 #endif
 #ifdef __APPLE__
 extern char **environ;
-#else
+#elif defined(__GLIBC__)
 #define environ __environ
+#else
+/* musl-libc and others - environ is declared in unistd.h */
+extern char **environ;
 #endif
 
 #define Seek(fu, offset, whence) lseek(fu, offset, whence)

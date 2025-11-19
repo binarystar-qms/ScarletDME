@@ -140,6 +140,15 @@ scarletdme:
   sortMem: 4096
   # Additional configuration options
   extraConfig: {}
+  # User account configuration
+  user:
+    # Enable user account creation
+    enabled: true
+    # Username for ScarletDME
+    name: myra
+    # Password for the user (will be stored in a Kubernetes secret)
+    # WARNING: Override this in production with --set or a secure values file
+    password: myrasupersecret
 
 # Liveness probe configuration
 livenessProbe:

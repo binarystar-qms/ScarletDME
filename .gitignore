@@ -17,3 +17,6 @@ PVS_Studio.fullhtml/**
 PVS_Studio.tasks
 gcc.log
 strace_out
+
+# Python virtual environment
+.venv/

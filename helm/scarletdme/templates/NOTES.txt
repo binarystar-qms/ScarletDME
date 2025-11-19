@@ -40,6 +40,19 @@ Ports:
 - QMServer (Telnet): {{ .Values.service.qmServerPort }}
 - QMClient (API): {{ .Values.service.qmClientPort }}
 
+{{- if .Values.scarletdme.user.enabled }}
+
+User Authentication:
+- Username: {{ .Values.scarletdme.user.name }}
+- Password: Stored securely in Kubernetes secret "{{ include "scarletdme.fullname" . }}-credentials"
+
+To retrieve the password:
+  kubectl get secret --namespace {{ .Release.Namespace }} {{ include "scarletdme.fullname" . }}-credentials -o jsonpath="{.data.password}" | base64 --decode; echo
+
+SECURITY WARNING: For production deployments, change the default password by setting:
+  --set scarletdme.user.password=your-secure-password
+{{- end }}
+
 {{- if .Values.persistence.enabled }}
 
 Persistence is enabled. Data will be stored in the persistent volume.

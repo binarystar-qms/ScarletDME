@@ -76,13 +76,16 @@ This command removes all the Kubernetes components associated with the chart and
 
 ### ScarletDME Configuration Parameters
 
-| Name                          | Description                               | Value          |
-| ----------------------------- | ----------------------------------------- | -------------- |
-| `scarletdme.qmsysPath`        | QMSYS path                                | `/usr/qmsys`   |
-| `scarletdme.grpSize`          | Group size                                | `2`            |
-| `scarletdme.numUsers`         | Number of users                           | `10`           |
-| `scarletdme.sortMem`          | Sort memory (in KB)                       | `4096`         |
-| `scarletdme.extraConfig`      | Additional configuration options          | `{}`           |
+| Name                          | Description                               | Value              |
+| ----------------------------- | ----------------------------------------- | ------------------ |
+| `scarletdme.qmsysPath`        | QMSYS path                                | `/usr/qmsys`       |
+| `scarletdme.grpSize`          | Group size                                | `2`                |
+| `scarletdme.numUsers`         | Number of users                           | `10`               |
+| `scarletdme.sortMem`          | Sort memory (in KB)                       | `4096`             |
+| `scarletdme.extraConfig`      | Additional configuration options          | `{}`               |
+| `scarletdme.user.enabled`     | Enable user account creation with secret  | `true`             |
+| `scarletdme.user.name`        | Username for ScarletDME                   | `myra`             |
+| `scarletdme.user.password`    | Password (stored as Kubernetes secret)    | `myrasupersecret`  |
 
 ### Resource Parameters
 
@@ -146,6 +149,9 @@ resources:
 scarletdme:
   numUsers: 50
   sortMem: 8192
+  user:
+    name: myuser
+    password: mysecurepassword
 ```
 
 Install the chart:
@@ -193,6 +199,47 @@ helm install my-scarletdme ./helm/scarletdme --set persistence.enabled=false
 ```
 
 **Warning**: Disabling persistence will cause data loss when pods are restarted.
+
+### User Authentication
+
+The chart automatically creates a user account with credentials stored in a Kubernetes secret. By default:
+- Username: `myra`
+- Password: `myrasupersecret` (stored in a Kubernetes secret)
+
+**Important**: For production deployments, override the password using one of these methods:
+
+#### Method 1: Using --set (password visible in command history)
+```bash
+helm install my-scarletdme ./helm/scarletdme \
+  --set scarletdme.user.password=your-secure-password
+```
+
+#### Method 2: Using a secure values file (recommended)
+Create a `secure-values.yaml` file:
+```yaml
+scarletdme:
+  user:
+    name: myra
+    password: your-secure-password
+```
+
+Install with:
+```bash
+helm install my-scarletdme ./helm/scarletdme -f secure-values.yaml
+```
+
+**Note**: Keep the `secure-values.yaml` file secure and do not commit it to version control.
+
+#### Method 3: Use existing secret (advanced)
+If you want to manage the secret separately:
+1. Disable the built-in secret creation:
+   ```bash
+   --set scarletdme.user.enabled=false
+   ```
+2. Create your own secret manually
+3. Mount it using `extraVolumes` and `extraVolumeMounts` in values.yaml
+
+The password is mounted as a file at `/run/secrets/scarlet_password` and is read by the container at startup to configure the user account.
 
 ### Security Context
 

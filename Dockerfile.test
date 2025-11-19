@@ -1,0 +1,57 @@
+# Simple single-stage build for testing
+FROM alpine:3.19
+
+# Install all dependencies
+RUN apk add --no-cache \
+    gcc \
+    g++ \
+    make \
+    musl-dev \
+    linux-headers \
+    libstdc++ \
+    bash \
+    procps \
+    shadow
+
+# Create qmusers group and qmsys user
+RUN addgroup -S qmusers && \
+    adduser -S -G qmusers -h /usr/qmsys -s /bin/bash qmsys && \
+    addgroup root qmusers
+
+# Create necessary directories
+RUN mkdir -p /usr/src/ScarletDME
+
+# Copy source code
+COPY . /usr/src/ScarletDME
+WORKDIR /usr/src/ScarletDME
+
+# Build as qmsys user
+RUN chown -R qmsys:qmusers /usr/src/ScarletDME
+USER qmsys
+RUN make clean || true
+RUN make
+USER root
+
+# Install - run datafiles first to set up directory structure
+RUN make datafiles
+RUN make install
+
+# Copy configuration
+COPY scarlet.conf /etc/scarlet.conf
+RUN chown qmsys:qmusers /etc/scarlet.conf && \
+    chmod 644 /etc/scarlet.conf
+
+# Create symbolic link
+RUN ln -sf /usr/qmsys/bin/qm /usr/bin/qm
+
+# Expose ports
+EXPOSE 4242 4243
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD pgrep -x qm > /dev/null || exit 1
+
+WORKDIR /usr/qmsys
+USER root
+CMD ["/usr/qmsys/bin/qm", "-start"]
+

@@ -1,0 +1,47 @@
+# Git
+.git
+.gitignore
+.github
+
+# Documentation
+docs/
+*.md
+*.rst
+*.txt
+info/
+
+# Build artifacts
+gplobj/*.o
+bin/*.o
+bin/qm
+bin/qmconv
+bin/qmfix
+bin/qmidx
+bin/qmlnxd
+bin/qmtic
+bin/*.so
+
+# Docker
+docker/
+Dockerfile
+.dockerignore
+
+# Development
+.venv/
+venv/
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+
+# Helm
+helm/
+
+# Kubernetes
+*.yaml
+*.yml
+
+# Contrib
+contrib/
+
+

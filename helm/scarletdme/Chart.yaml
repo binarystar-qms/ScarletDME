@@ -1,0 +1,31 @@
+apiVersion: v2
+name: scarletdme
+description: A Helm chart for deploying ScarletDME Multi-Value Database Server
+type: application
+
+# This is the chart version. This version number should be incremented each time you make changes
+# to the chart and its templates, including the app version.
+version: 1.0.0
+
+# This is the version number of the application being deployed.
+appVersion: "1.0.0"
+
+keywords:
+  - database
+  - multivalue
+  - scarletdme
+  - openqm
+
+maintainers:
+  - name: ScarletDME Team
+    email: geneb@deltasoft.com
+
+sources:
+  - https://github.com/geneb/ScarletDME
+  - https://github.com/binarystar-qms/ScarletDME
+
+home: https://scarlet.deltasoft.com
+
+icon: https://scarlet.deltasoft.com/favicon.ico
+
+

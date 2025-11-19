@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "scarletdme.fullname" . }}
+  labels:
+    {{- include "scarletdme.labels" . | nindent 4 }}
+data:
+  scarlet.conf: |
+    [qm]
+    QMSYS={{ .Values.scarletdme.qmsysPath }}
+    GRPSIZE={{ .Values.scarletdme.grpSize }}
+    NUMUSERS={{ .Values.scarletdme.numUsers }}
+    SORTMEM={{ .Values.scarletdme.sortMem }}
+    {{- range $key, $value := .Values.scarletdme.extraConfig }}
+    {{ $key }}={{ $value }}
+    {{- end }}
+
+

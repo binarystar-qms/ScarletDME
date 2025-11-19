@@ -1,0 +1,62 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your ScarletDME deployment has been created.
+
+1. Get the application URL by running these commands:
+{{- if .Values.ingress.enabled }}
+{{- range $host := .Values.ingress.hosts }}
+  {{- range .paths }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}{{ .path }}
+  {{- end }}
+{{- end }}
+{{- else if contains "NodePort" .Values.service.type }}
+  export NODE_PORT_CLIENT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[1].nodePort}" services {{ include "scarletdme.fullname" . }})
+  export NODE_PORT_SERVER=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "scarletdme.fullname" . }})
+  export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+  echo "QMClient API: $NODE_IP:$NODE_PORT_CLIENT"
+  echo "QMServer (Telnet): $NODE_IP:$NODE_PORT_SERVER"
+{{- else if contains "LoadBalancer" .Values.service.type }}
+     NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+           You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "scarletdme.fullname" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ include "scarletdme.fullname" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo "QMClient API: $SERVICE_IP:{{ .Values.service.qmClientPort }}"
+  echo "QMServer (Telnet): $SERVICE_IP:{{ .Values.service.qmServerPort }}"
+{{- else if contains "ClusterIP" .Values.service.type }}
+  export POD_NAME=$(kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "scarletdme.name" . }},app.kubernetes.io/instance={{ .Release.Name }}" -o jsonpath="{.items[0].metadata.name}")
+  export CONTAINER_PORT_CLIENT=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[1].containerPort}")
+  export CONTAINER_PORT_SERVER=$(kubectl get pod --namespace {{ .Release.Namespace }} $POD_NAME -o jsonpath="{.spec.containers[0].ports[0].containerPort}")
+  echo "Visit http://127.0.0.1:{{ .Values.service.qmClientPort }} for QMClient API"
+  echo "Visit http://127.0.0.1:{{ .Values.service.qmServerPort }} for QMServer (Telnet)"
+  kubectl --namespace {{ .Release.Namespace }} port-forward $POD_NAME {{ .Values.service.qmClientPort }}:$CONTAINER_PORT_CLIENT {{ .Values.service.qmServerPort }}:$CONTAINER_PORT_SERVER
+{{- end }}
+
+2. Check the deployment status:
+  kubectl get pods --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "scarletdme.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+
+3. View logs:
+  kubectl logs --namespace {{ .Release.Namespace }} -l "app.kubernetes.io/name={{ include "scarletdme.name" . }},app.kubernetes.io/instance={{ .Release.Name }}"
+
+Ports:
+- QMServer (Telnet): {{ .Values.service.qmServerPort }}
+- QMClient (API): {{ .Values.service.qmClientPort }}
+
+{{- if .Values.persistence.enabled }}
+
+Persistence is enabled. Data will be stored in the persistent volume.
+{{- else }}
+
+WARNING: Persistence is disabled. All data will be lost when the pod is terminated!
+{{- end }}
+
+For more information, visit: https://scarlet.deltasoft.com
+
+
+
+
+
+
+
+
+
+
+

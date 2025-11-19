@@ -1,0 +1,60 @@
+# Test deployment values for ScarletDME
+replicaCount: 1
+
+image:
+  repository: registry.digitalocean.com/binarystar/scarletdme
+  pullPolicy: Always
+  tag: "test"
+
+imagePullSecrets:
+  - name: registry-binarystar
+
+service:
+  type: ClusterIP
+  qmServerPort: 4242
+  qmClientPort: 4243
+
+# Disable persistence for testing
+persistence:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1Gi
+  requests:
+    cpu: 250m
+    memory: 256Mi
+
+# Faster startup for testing
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 20
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 15
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+  successThreshold: 1
+
+startupProbe:
+  enabled: true
+  initialDelaySeconds: 5
+  periodSeconds: 5
+  timeoutSeconds: 5
+  failureThreshold: 20
+  successThreshold: 1
+
+# Security configuration
+env:
+  - name: SCARLET_USER
+    value: "myra"
+  - name: SCARLET_PASSWORD
+    value: "myrasupersecret"
+

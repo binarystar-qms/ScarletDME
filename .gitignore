@@ -18,3 +18,11 @@ PVS_Studio.tasks
 gcc.log
 strace_out
 
+# ---------------------------------------------------------------------
+# This is a public fork. Do not commit anything derived from third-party
+# proprietary source trees (raw tape-dump archives, expanded staging
+# directories, or product-specific loader tooling).
+# ---------------------------------------------------------------------
+docker/**/staging/
+docker/**/*.asc
+

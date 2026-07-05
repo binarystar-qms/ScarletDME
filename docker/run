@@ -1,8 +1,22 @@
 #!/bin/bash
 #
-# Script to build and run Docker container for ScarletDME development.
+# Helper: build and start the ScarletDME development container.
+# Preferred usage is via docker compose from the ScarletDME root:
+#
+#   docker compose up -d           # build (first time) and start in background
+#   docker compose logs -f         # tail logs
+#   docker compose down            # stop
+#
+# This script is kept for quick one-off builds without docker-compose.
 #
 set -ue
-cd "$(dirname "$0")"
-docker build -f ./Dockerfile -t scarletdme ..
-docker run -it scarletdme /bin/bash
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(dirname "${SCRIPT_DIR}")"
+
+cd "${REPO_ROOT}"
+docker compose up --build -d
+echo ""
+echo "Container started."
+echo "  QM telnet : telnet localhost 4242"
+echo "  SSH/rsync : ssh -p 2222 qmsys@localhost  (password: qmsys)"
+echo "  Shell     : docker exec -it scarletdme-dev su -c '/usr/qmsys/bin/qm' qmsys"

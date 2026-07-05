@@ -1,0 +1,17 @@
+services:
+  scarletdme:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: scarletdme-dev
+    ports:
+      - "4242:4242"   # QM telnet sessions
+      - "4243:4243"   # QM client API
+      - "2222:22"     # SSH for rsync access
+    volumes:
+      - scarletdme-data:/usr/qmsys
+    restart: unless-stopped
+
+volumes:
+  scarletdme-data:
+    driver: local

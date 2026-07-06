@@ -4,6 +4,20 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     container_name: scarletdme-dev
+    # QM leaks a handful of file descriptors (VOC, source, catalog, message
+    # file) on every non-interactive BASIC compile and never closes them
+    # within a session. The default 1024 fd limit is exhausted after
+    # ~140-150 sequential compiles in one `qm` process, at which point an
+    # error-reporting path (DH_READ_GROUP) retries the failed open()
+    # forever instead of failing cleanly, hanging at 100% CPU. Raising the
+    # limit is a legitimate fix here, not a workaround: real MultiValue/
+    # Pick installs always run with a high fd ulimit for exactly this
+    # reason (many small per-file-group files). See
+    # docs/current-work/NUCLEUS-SCARLETDME-PORT.md for the full writeup.
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     ports:
       - "4242:4242"   # QM telnet sessions
       - "4243:4243"   # QM client API

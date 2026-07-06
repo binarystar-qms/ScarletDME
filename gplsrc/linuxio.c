@@ -21,6 +21,15 @@
  * ScarletDME Wiki: https://scarlet.deltasoft.com
  * 
  * START-HISTORY (ScarletDME):
+ * 06Jul26 BSL0001 Fixed qm hanging at 100% CPU when piped/heredoc stdin
+ *             (docker exec -i ... qm <<EOF, qm <<'SCRIPT') reaches EOF.
+ *             keyready() unconditionally reported piped input as always
+ *             ready, and keyin() returned -1/ER_EOF with no exit-cause
+ *             signal, so CPROC's command-line loop saw an empty KEYCODE()
+ *             forever and spun on "repeat" instead of exiting. EOF is now
+ *             treated like a lost connection (connection_lost + K_TERMINATE)
+ *             so the process exits cleanly via the existing kernel.c
+ *             run_program() K_TERMINATE -> longjmp(k_exit, ...) path.
  * 28Feb20 gwb Changed integer declarations to be portable across address
  *             space sizes (32 vs 64 bit)
  *
@@ -350,7 +359,11 @@ bool keyready() {
     return TRUE;
 
   if (piped_input)
-    return TRUE;
+    /* BSL0001 A pipe/heredoc always has data "ready" until it hits EOF, at
+       which point no more data will ever arrive. Reporting TRUE forever
+       spins any while(keyready()) drain loop (CLEARINPUT, break handling)
+       at 100% CPU once the input stream is exhausted. */
+    return !connection_lost;
 
   input_handler_enabled = FALSE;
 
@@ -402,8 +415,19 @@ int16_t keyin(timeout) int timeout; /* Milliseconds */
   } else {
     if (piped_input) {
       if (read(0, &c, 1) <= 0) {
+        /* BSL0001 EOF on a piped/heredoc stdin used to leave process.status
+           set to ER_EOF and return -1 with no signal that could ever
+           unwind the kernel dispatch loop. Callers such as CPROC's
+           get.command.line loop just saw an empty KEYCODE() result,
+           which matches no case and falls through to "repeat", spinning
+           read() at 100% CPU forever. Treat it exactly like a lost
+           terminal connection (see do_input() above) so the same,
+           already-proven K_TERMINATE -> longjmp(k_exit, ...) path in
+           kernel.c's run_program() cleanly ends the process instead. */
         process.status = ER_EOF;
-        return -1;
+        connection_lost = TRUE;
+        k_exit_cause = K_TERMINATE;
+        return 0;
       }
 
       if (c == 10)

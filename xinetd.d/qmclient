@@ -6,8 +6,10 @@
 #
 # Port #4243 is normally used for this.
 
-service qmsrvr
+service qmclient
 {
+        port            = 4243
+        type            = UNLISTED
         protocol        = tcp
         flags           = REUSE
         socket_type     = stream

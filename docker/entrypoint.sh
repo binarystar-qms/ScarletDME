@@ -11,7 +11,7 @@ echo ""
 # previous build) but empty, we need to restore the data files from the
 # source tree that was copied in at build time under /usr/src/ScarletDME.
 if [ ! -f /usr/qmsys/bin/qm ]; then
-    echo "[0/2] Restoring data files into volume..."
+    echo "[0/3] Restoring data files into volume..."
     cd /usr/src/ScarletDME
     make install datafiles
     echo "      Data files restored."
@@ -19,7 +19,7 @@ if [ ! -f /usr/qmsys/bin/qm ]; then
 fi
 
 # Start SSH daemon so rsync can reach the container
-echo "[1/2] Starting SSH daemon..."
+echo "[1/3] Starting SSH daemon..."
 /usr/sbin/sshd
 echo "      SSH ready on port 22"
 echo "      User: qmsys  Password: qmsys"
@@ -29,14 +29,24 @@ echo ""
 
 # qm -start requires euid 0 (root) to initialise the system monitor.
 # The entrypoint runs as root, so no su wrapper needed here.
-echo "[2/2] Starting ScarletDME..."
+echo "[2/3] Starting ScarletDME..."
 cd /usr/qmsys
 /usr/qmsys/bin/qm -start
-echo "      QM daemon ready on port 4242"
+echo "      QM system monitor/IPC initialised"
+echo ""
+
+# qm -start only brings up QM's internal monitor -- it does not itself
+# listen on any port. xinetd is the actual network listener that spawns a
+# `qm` process per incoming connection on 4242 (qmserver, telnet-style
+# sessions) and 4243 (qmclient, the native QMClient wire protocol).
+echo "[3/3] Starting xinetd (qmserver:4242, qmclient:4243)..."
+/usr/sbin/xinetd -f /etc/xinetd.conf
+echo "      xinetd ready"
 echo ""
 echo "Connect options:"
-echo "  telnet:       telnet localhost 4242"
-echo "  docker exec:  docker exec -it <container> su -c '/usr/qmsys/bin/qm' qmsys"
+echo "  telnet (qmserver):  telnet localhost 4242"
+echo "  QMClient (qmclient): port 4243"
+echo "  docker exec:        docker exec -it <container> su -c '/usr/qmsys/bin/qm' qmsys"
 echo ""
 echo "==================================="
 

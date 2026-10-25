@@ -22,6 +22,7 @@ services:
       - "4242:4242"   # QM telnet sessions
       - "4243:4243"   # QM client API
       - "2222:22"     # SSH for rsync access
+      - "4244:4244"   # MYRA.HTTPD REST API (phantom listener; start it with PHANTOM RUN BP MYRA.HTTPD)
     volumes:
       - scarletdme-data:/usr/qmsys
     restart: unless-stopped

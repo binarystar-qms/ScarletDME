@@ -765,6 +765,7 @@ get.command.line:
 
    cmnd.ptr = 0       ;* Stack position if non-zero
    at.command = ''
+   first.draw = @true ;* The first draw of the line must not clear the row
 
    i = kernel(K$SUPPRESS.COMO,@true)
 
@@ -781,8 +782,24 @@ get.command.line:
       csr.x = -1
 
       image = space(wm1)
+      zone.open = @false
+      zone.ext = 0
       first = not(bitand(kernel(K$COMMAND.OPTIONS, 0), CMD.STDOUT))
-      if first or echo.input then display @(0) : @(-4) :
+      if first or echo.input then
+         display @(0) :
+         if first.draw then
+            * The prompt is drawn where the cursor is, with whatever the previous
+            * program left on the row beside it, as on UniVerse (the terminal
+            * driver there echoes and never clears). Nothing is known about the
+            * cells to the right, so image says "unknown" (char 0) and
+            * zoned.update only touches the extent of what we draw ourselves.
+            zone.open = @true
+            image = str(char(0), wm1)
+         end else
+            display @(-4) :   ;* Redraw after a stack recall: the old line may be longer
+         end
+      end
+      first.draw = @false
 
       loop
          if (x < command.pan) or (x >= (command.pan + command.width)) then
@@ -855,8 +872,13 @@ get.command.line:
                at.command = trimf(trimb(at.command))
                i = kernel(K$SUPPRESS.COMO,@false)
                if echo.input then   ;* 0479
-                  crt @(0) : @(-4) :
-                  crt (if selectinfo(0,1) then '::' else ':') : at.command
+                  * Retype the trimmed command (this is also what the COMO log
+                  * records). Write spaces over what is left of the old text
+                  * rather than clearing the row: UniVerse leaves whatever is
+                  * beside the line alone.
+                  echo.line = command.prompt<(if selectinfo(0,1) then 2 else 1)> : at.command
+                  i = len(trimb(convert(char(0), ' ', image))) - len(echo.line)
+                  crt @(0) : echo.line : (if i > 0 then space(i) else '')
                end
                i = kernel(K$PAGINATE, @true)
                return
@@ -938,6 +960,7 @@ get.string:
    gs.pan = 1
    x = 1
 
+   zone.open = @false
    ss = gs.prefix : string
    image = (ss : space(wm1))[1,wm1]
    display @(0) : ss[1,wm1] : @(-4) :
@@ -1028,13 +1051,22 @@ zoned.update:
    left = 0
    text.line = ss : space(wm1)
 
+   * Width of the zone we may compare and write. Normally the whole row. When
+   * the line was drawn beside other text (zone.open) only the extent that we
+   * have written ourselves is ours: the cells beyond it stay as they are.
+   zw = wm1
+   if zone.open then
+      zone.ext = max(zone.ext, len(ss))
+      zw = min(zone.ext, wm1)
+   end
+
    if image # text.line then
-      for cl = 1 to wm1
+      for cl = 1 to zw
          if text.line[cl,1] # image[cl,1] then
             left = cl ; right = cl
             loop
                cl += 1
-            while cl <= wm1
+            while cl <= zw
                if text.line[cl,1] # image[cl,1] then right = cl
             repeat
 
@@ -1043,7 +1075,7 @@ zoned.update:
             if i # csr.x then display @(i) :
             display text.line[left,w] :
             csr.x = i + w
-            image = text.line[1,wm1]
+            image = text.line[1,zw] : image[zw+1,wm1]
             exit
          end
       next cl
@@ -3354,7 +3386,7 @@ exit.actions:
                         create.file s directory on error null
                      end
                      openpath s to stk.f then
-                        write command.stack to stk.f, @logname
+                        write command.stack to stk.f, @logname on error null
                         close stk.f
                      end
                   end

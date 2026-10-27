@@ -365,6 +365,17 @@ bool keyready() {
        at 100% CPU once the input stream is exhausted. */
     return !connection_lost;
 
+  /* A lost connection never delivers another character. qmpoll() reports
+     a closed socket as permanently readable, so without this test the
+     branch below would call keyin(), which returns 0 at once and is kept
+     as type ahead, and every while(keyready()) keyin(0) drain loop
+     (CLEARINPUT, the break handler prompts) would spin at 100% CPU for
+     ever, for example in an ON.EXIT that clears the input queue after the
+     client has gone.                                                      */
+
+  if (connection_lost)
+    return FALSE;
+
   input_handler_enabled = FALSE;
 
   /* Check if there is anything pending on stdin. We may have had
@@ -433,6 +444,22 @@ int16_t keyin(timeout) int timeout; /* Milliseconds */
       if (c == 10)
         c = inewline;
       goto exit_keyin;
+    }
+
+    /* Once the connection has gone there will never be another character.
+       poll() reports a closed socket as permanently readable and do_input()
+       does nothing when connection_lost is set, so the loop below would spin
+       at 100% CPU for ever if a logout that is already under way is aborted
+       and the command processor drops back to its prompt (the exit actions
+       failing to write the command stack, for example). A pending
+       K_TERMINATE is left for the kernel to deal with, so that the exit
+       actions still run once; any later attempt to read ends the process.   */
+
+    if (connection_lost) {
+      if (!(k_exit_cause & K_INTERRUPT))
+        k_exit_cause = K_LOGOUT;
+      input_handler_enabled = TRUE;
+      return 0;
     }
 
     if (autologout)
@@ -681,9 +708,17 @@ bool restore_cursor;
 bool read_socket(str, bytes) char* str;
 int bytes;
 {
-  while (bytes--)
+  /* Stop as soon as the connection has gone. keyin() returns 0 at once on a
+     lost connection, so carrying on would fill the whole of a packet whose
+     header announced up to 2Gb with zeros (and memory) at 100% CPU after
+     the client has left. Callers treat FALSE as "socket closed".          */
+
+  while (bytes--) {
     *(str++) = (char)keyin(0);
-  return 1;
+    if (connection_lost)
+      return FALSE;
+  }
+  return TRUE;
 }
 
 char socket_byte() {

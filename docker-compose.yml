@@ -4,6 +4,12 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     container_name: scarletdme-dev
+    # PID 1 must reap its children. The entrypoint ends in `exec tail -f /dev/null`,
+    # which never calls wait(): a qm process that dies without cleaning up stays a
+    # zombie, still answers kill(pid, 0), and qmlnxd never frees its user slot (the
+    # system allows NUMUSERS sessions, so the slots run out and every login is
+    # refused with "User limit reached"). `init: true` puts Docker's tini in front.
+    init: true
     # QM leaks a handful of file descriptors (VOC, source, catalog, message
     # file) on every non-interactive BASIC compile and never closes them
     # within a session. The default 1024 fd limit is exhausted after

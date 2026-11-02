@@ -11,7 +11,9 @@ on:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: the engine includes <termio.h>, which current glibc no longer ships. The release the
+    # engine's Docker image is built on (Ubuntu 20.04) is out of the hosted runners, so the oldest one left.
+    runs-on: ubuntu-22.04
     permissions:
       actions: read
       contents: read

@@ -39,9 +39,11 @@ jobs:
         languages: ${{ matrix.language }}
         build-mode: manual
 
-    # CodeQL traces this build, so the whole engine must really be compiled.
+    # CodeQL traces this build, so the whole engine must really be compiled. The source predates C23, where
+    # `bool` became a keyword (it declares its own `typedef int16_t bool`), so the language level of the
+    # runner's current gcc is pinned to the one the engine was written for.
     - name: Build the engine
-      run: make
+      run: make COMP="gcc -std=gnu17"
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v4

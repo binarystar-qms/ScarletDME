@@ -1733,7 +1733,9 @@ char* day_to_ddmmmyyyy(int32_t day_no) /* QM format day number */
 
   /* Build result string */
 
-  sprintf(date_string, "%2d %.3s %4d", (int)day, month_names[mon - 1],
+  /* The day has two digits ("02 NOV 2026"), as on UniVerse, so that TIMEDATE()
+     keeps its fixed-width layout on days 1 to 9. */
+  sprintf(date_string, "%02d %.3s %4d", (int)day, month_names[mon - 1],
           (int)year);
   UpperCaseString(date_string);
   return date_string;
